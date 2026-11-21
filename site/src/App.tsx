@@ -1,6 +1,5 @@
 import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { ArrowRight, Heart, Mail, MapPin, Phone as PhoneIcon, Menu, X, Play, ShieldCheck, Leaf, BadgeCheck, BookOpen, Plus, Users, Sprout, CirclePlus, Target, Eye, Coins, ClipboardCheck, Search, Check, Package, BarChart3, FileText, Wallet, CalendarDays } from 'lucide-react'
-import { GiftDemo } from './components/GiftDemo'
 import { ThankYou } from './components/ThankYou'
 import { useActiveSection, useParallax, useReveal, useScrolled } from './hooks'
 
@@ -423,33 +422,6 @@ function Donate() {
   )
 }
 
-/* ----------------------------------------------------------------- trace */
-
-function Trace() {
-  const steps = [
-    ['Choose', 'Pick an amount, once or every month. There is no account to create.'],
-    ['Give', 'Pay by UPI, card or net banking on a secure page.'],
-    ['Receive', 'Your 80G receipt reaches your phone and inbox straight away.'],
-  ]
-  return (
-    <section className="trace">
-      <div className="trace__copy">
-        <Reveal className="eyebrow">How giving works</Reveal>
-        <Reveal as="h2" className="display display--sm" d={80}>Your gift, then <em>your receipt</em></Reveal>
-        <ol className="steps">
-          {steps.map(([t, s], i) => (
-            <Reveal as="li" key={t} d={160 + i * 100}>
-              <span>{i + 1}</span>
-              <p><b>{t}</b>{s}</p>
-            </Reveal>
-          ))}
-        </ol>
-      </div>
-      <Reveal className="trace__demo" d={140}><GiftDemo /></Reveal>
-    </section>
-  )
-}
-
 /* ---------------------------------------------------------------- events */
 
 function Events() {
@@ -474,7 +446,7 @@ function Events() {
 /* -------------------------------------------------------------- involved */
 
 const WAYS = [
-  ['Volunteer your time', 'Teach, assist at health camps, or help on the ground.', `mailto:${EMAIL}?subject=Volunteering`],
+  ['Volunteer your time', 'Teach, assist at health camps, or help on the ground.', '#join'],
   ['Give every month', 'A steady gift lets us plan services further ahead.', '#donate'],
   ['Partner with us', 'Schools, clinics and local businesses working alongside the trust.', `mailto:${EMAIL}?subject=Partnership`],
 ]
@@ -495,6 +467,120 @@ function Involved() {
           </Reveal>
         ))}
       </div>
+    </section>
+  )
+}
+
+/* ------------------------------------------------------------------ join */
+
+// Set this to your form endpoint (a Formspree URL, an API route, a Google Apps Script...).
+// Left empty, the form validates and shows the thank-you state but sends nothing.
+const APPLY_ENDPOINT = ''
+
+const ROLES = ['Teaching', 'Health camps', 'Field work', 'Events & fundraising', 'Media & design', 'Something else']
+const TIMES = ['Weekdays', 'Weekends', 'Flexible']
+
+function Join() {
+  const [role, setRole] = useState('')
+  const [time, setTime] = useState('Flexible')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [state, setState] = useState<'idle' | 'sending' | 'done' | 'failed'>('idle')
+
+  const submit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const form = e.currentTarget
+    const fd = new FormData(form)
+    const err: Record<string, string> = {}
+    if (!String(fd.get('name') || '').trim()) err.name = 'Please tell us your name.'
+    if (!/^\+?[0-9\s-]{10,14}$/.test(String(fd.get('phone') || '').trim())) err.phone = 'Enter a 10-digit mobile number.'
+    const mail = String(fd.get('email') || '').trim()
+    if (mail && !/^\S+@\S+\.\S+$/.test(mail)) err.email = 'That email looks incomplete.'
+    if (!role) err.role = 'Choose where you would like to help.'
+    setErrors(err)
+    if (Object.keys(err).length) { form.querySelector<HTMLElement>('[data-err="true"]')?.focus(); return }
+    fd.set('role', role); fd.set('availability', time)
+    setState('sending')
+    try {
+      if (APPLY_ENDPOINT) {
+        const res = await fetch(APPLY_ENDPOINT, { method: 'POST', body: fd, headers: { Accept: 'application/json' } })
+        if (!res.ok) throw new Error('bad response')
+      } else {
+        await new Promise((r) => setTimeout(r, 700))
+      }
+      setState('done')
+    } catch {
+      setState('failed')
+    }
+  }
+
+  const field = (name: string, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
+    <label className="f" data-bad={!!errors[name]}>
+      <span>{label}</span>
+      <input name={name} {...props} data-err={!!errors[name]} aria-invalid={!!errors[name]} onChange={() => errors[name] && setErrors((x) => ({ ...x, [name]: '' }))} />
+      {errors[name] && <em role="alert">{errors[name]}</em>}
+    </label>
+  )
+
+  return (
+    <section id="join" className="join">
+      <Reveal className="join__intro">
+        <div className="join__ornament" aria-hidden><Trident size={44} /></div>
+        <p className="eyebrow">Join our team</p>
+        <h2 className="display display--sm">Give your hands, <em>not only your gift</em></h2>
+        <p className="lede">Our work in Vindhyachal runs on people who turn up. Tell us a little about yourself and where you would like to help; we will call you within a few days.</p>
+        <ul>
+          <li><Check size={18} /> No experience needed to start</li>
+          <li><Check size={18} /> Choose the hours that suit you</li>
+          <li><Check size={18} /> Work alongside our local team</li>
+        </ul>
+      </Reveal>
+
+      <Reveal className="join__card" d={140}>
+        {state === 'done' ? (
+          <div className="join__done" role="status">
+            <svg viewBox="0 0 80 80" aria-hidden><circle cx="40" cy="40" r="34" pathLength={1} /><path d="M26 41l10 10 19-21" pathLength={1} /></svg>
+            <h3>Thank you for stepping forward.</h3>
+            <p>We have your application and will call you on the number you gave. Until then, Maa Adishakti ki jai.</p>
+            <button className="btn btn--ghost" onClick={() => { setState('idle'); setRole(''); setErrors({}) }}>Send another</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} noValidate>
+            <h3>Apply to volunteer or join the staff</h3>
+            <div className="f-grid">
+              {field('name', 'Full name', { autoComplete: 'name', required: true })}
+              {field('phone', 'Mobile number', { type: 'tel', autoComplete: 'tel', inputMode: 'tel', required: true })}
+              {field('email', 'Email (optional)', { type: 'email', autoComplete: 'email' })}
+              {field('city', 'Town or village', { autoComplete: 'address-level2' })}
+            </div>
+
+            <fieldset className="chips" data-bad={!!errors.role}>
+              <legend>Where would you like to help?</legend>
+              <div>
+                {ROLES.map((r) => (
+                  <button type="button" key={r} aria-pressed={role === r} data-err={!!errors.role && r === ROLES[0]} onClick={() => { setRole(r); setErrors((x) => ({ ...x, role: '' })) }}>{r}</button>
+                ))}
+              </div>
+              {errors.role && <em role="alert">{errors.role}</em>}
+            </fieldset>
+
+            <fieldset className="chips">
+              <legend>When are you free?</legend>
+              <div>{TIMES.map((t) => <button type="button" key={t} aria-pressed={time === t} onClick={() => setTime(t)}>{t}</button>)}</div>
+            </fieldset>
+
+            <label className="f">
+              <span>Anything we should know? (optional)</span>
+              <textarea name="message" rows={3} placeholder="Your skills, languages, or why you want to join" />
+            </label>
+
+            <button type="submit" className="btn btn--solid btn--lg btn--block" disabled={state === 'sending'}>
+              {state === 'sending' ? 'Sending…' : <>Submit application <ArrowRight size={18} /></>}
+            </button>
+            {state === 'failed' && <p className="join__fail" role="alert">That did not go through. Please try again, or write to {EMAIL}.</p>}
+            <p className="join__fine">We use your details only to contact you about volunteering.</p>
+          </form>
+        )}
+      </Reveal>
     </section>
   )
 }
@@ -542,9 +628,9 @@ export default function App() {
         <About />
         <Work />
         <Donate />
-        <Trace />
         <Events />
         <Involved />
+        <Join />
       </main>
       <Footer />
     </>
